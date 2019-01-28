@@ -17,35 +17,60 @@ limitations under the License.
 package main
 
 import (
-	"fmt"
+	"encoding/json"
+	"reflect"
 	"testing"
 
 	"github.com/hyperledger/fabric/core/chaincode/shim"
+	"github.com/stretchr/testify/assert"
 )
+
+// TxID is just a dummuy transactional ID for test cases
+const TxID = "mockTxID"
 
 func TestContractChaincode_health(t *testing.T) {
 	scc := new(ContractChaincode)
 	stub := shim.NewMockStub("ContractChaincode", scc)
 	// Contract
-	checkHealth(t, stub, "A", "345")
+	// mockInvokeArgs := [][]byte{[]byte(function), args}
+	// res := stub.MockInvoke(MockStubUUID, mockInvokeArgs)
+	res := stub.MockInvoke(TxID, [][]byte{[]byte("Health")})
+	assert.Equal(t, int(res.Status), shim.OK, "Health failed.")
+	payload := string(res.Payload)
+	assert.Equal(t, payload, "Ok", "Contract return value not expected.")
 }
 
-func checkHealth(t *testing.T, stub *shim.MockStub, name string, value string) {
-	res := stub.MockInvoke("1", [][]byte{[]byte("Health")})
+func TestContractChaincode_storeOrder(t *testing.T) {
+	scc := new(ContractChaincode)
+	stub := shim.NewMockStub("ContractChaincode", scc)
 
-	if res.Status != shim.OK {
-		fmt.Println("health", name, "failed", string(res.Message))
-		t.FailNow()
-	}
+	const orderStr = `{
+      "id": "d3ae8bb4-10ce-40a2-9a15-35bc6399df68",
+	  "name": "My Super Awesome Order",
+	  "approved": true,
+	  "amount": 1500,
+	  "createdTs": "2020-12-31T21:17:34.371Z",
+	  "reviewedTs": "2020-12-31T21:17:34.371Z" 
+	}`
 
-	if res.Payload == nil {
-		fmt.Println("health", name, "failed to return value")
-		t.FailNow()
-	}
+	var order *Order
+	orderAsBytes := []byte(orderStr)
+	err := json.Unmarshal(orderAsBytes, &order)
+	assert.Nil(t, err, "Failed to unmarshall order string.")
 
-	result := string(res.Payload)
-	if string(res.Payload) != "Ok" {
-		fmt.Println("Contract return value not expected. Value expected is Ok but got ", result)
-		t.FailNow()
-	}
+	// Contract - save order
+	mockInvokeArgs := [][]byte{[]byte("StoreOrder"), orderAsBytes}
+	res := stub.MockInvoke(TxID, mockInvokeArgs)
+	assert.Equal(t, int(res.Status), shim.OK, "StoreOrder failed.")
+	assert.Nil(t, res.Payload, "Contract return value not expected.")
+
+	// Contract - read/get order
+	mockInvokeArgs = [][]byte{[]byte("GetOrder"), []byte(order.ID)}
+	res = stub.MockInvoke(TxID, mockInvokeArgs)
+	readOrderAsBytes := res.Payload
+	var retrievedOrder *Order
+	err = json.Unmarshal(readOrderAsBytes, &retrievedOrder)
+	assert.Nil(t, err, "Failed to unmarshall retrieved order.")
+	assert.True(t, reflect.DeepEqual(order, retrievedOrder))
+	//fmt.Printf("%+v\n", retrievedOrder)
 }
