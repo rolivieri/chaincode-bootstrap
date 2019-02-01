@@ -108,6 +108,7 @@ func (t *ContractChaincode) StoreOrder(stub shim.ChaincodeStubInterface, args []
 		return shim.Error("Failed to store order data for id " + compositeRecordKey + ". Error: " + err.Error())
 	}
 
+	logger.Infof("Order successfully stored: '%s'", orderStr)
 	return shim.Success(nil)
 }
 
