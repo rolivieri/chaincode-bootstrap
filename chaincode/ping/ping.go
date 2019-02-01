@@ -134,6 +134,8 @@ func (t *ContractChaincode) GetOrder(stub shim.ChaincodeStubInterface, args []st
 		return shim.Error("Failed to read order data for id " + compositeRecordKey + ". Error: " + err.Error())
 	}
 
+	orderStr := string(orderAsBytes)
+	logger.Infof("Order read from the ledger: '%s'", orderStr)
 	return shim.Success(orderAsBytes)
 }
 
