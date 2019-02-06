@@ -17,7 +17,7 @@ limitations under the License.
 package main
 
 import (
-	"encoding/json"
+	"fmt"
 	"reflect"
 	"testing"
 
@@ -31,46 +31,21 @@ const TxID = "mockTxID"
 func TestContractChaincode_health(t *testing.T) {
 	scc := new(ContractChaincode)
 	stub := shim.NewMockStub("ContractChaincode", scc)
-	// Contract
-	// mockInvokeArgs := [][]byte{[]byte(function), args}
-	// res := stub.MockInvoke(MockStubUUID, mockInvokeArgs)
 	res := stub.MockInvoke(TxID, [][]byte{[]byte("Health")})
 	assert.Equal(t, int(res.Status), shim.OK, "Health failed.")
 	payload := string(res.Payload)
 	assert.Equal(t, payload, "Ok", "Contract return value not expected.")
 }
 
-func TestContractChaincode_storeOrder(t *testing.T) {
+func Test_inheritance(t *testing.T) {
 	scc := new(ContractChaincode)
-	stub := shim.NewMockStub("ContractChaincode", scc)
-
-	const orderStr = `{
-      "id": "d3ae8bb4-10ce-40a2-9a15-35bc6399df68",
-	  "name": "My Super Awesome Order",
-	  "approved": true,
-	  "amount": 1500,
-	  "createdTs": "2020-12-31T21:17:34.371Z",
-	  "reviewedTs": "2020-12-31T21:17:34.371Z" 
-	}`
-
-	var order *Order
-	orderAsBytes := []byte(orderStr)
-	err := json.Unmarshal(orderAsBytes, &order)
-	assert.Nil(t, err, "Failed to unmarshall order string.")
-
-	// Contract - save order
-	mockInvokeArgs := [][]byte{[]byte("StoreOrder"), orderAsBytes}
-	res := stub.MockInvoke(TxID, mockInvokeArgs)
-	assert.Equal(t, int(res.Status), shim.OK, "StoreOrder failed.")
-	assert.Nil(t, res.Payload, "Contract return value not expected.")
-
-	// Contract - read/get order
-	mockInvokeArgs = [][]byte{[]byte("GetOrder"), []byte(order.ID)}
-	res = stub.MockInvoke(TxID, mockInvokeArgs)
-	readOrderAsBytes := res.Payload
-	var retrievedOrder *Order
-	err = json.Unmarshal(readOrderAsBytes, &retrievedOrder)
-	assert.Nil(t, err, "Failed to unmarshall retrieved order.")
-	assert.True(t, reflect.DeepEqual(order, retrievedOrder))
-	//fmt.Printf("%+v\n", retrievedOrder)
+	stub := NewMyMockStub("ContractChaincode", scc)
+	fmt.Println(reflect.TypeOf(stub))
+	stub.GetCreator() // Invoke GetCreator() from test case
+	stub.GetChannelID()
+	res := stub.MockInvoke(TxID, [][]byte{[]byte("Health")})
+	assert.Equal(t, int(res.Status), shim.OK, "Health failed.")
+	payload := string(res.Payload)
+	assert.Equal(t, payload, "Ok", "Contract return value not expected.")
+	scc.MyHealth(stub)
 }

@@ -17,26 +17,60 @@ limitations under the License.
 package main
 
 import (
-	"encoding/json"
 	"fmt"
-	"strings"
-	"time"
+	"reflect"
 
+	"github.com/hyperledger/fabric/core/chaincode/lib/cid"
 	"github.com/hyperledger/fabric/core/chaincode/shim"
 	pb "github.com/hyperledger/fabric/protos/peer"
 )
 
 var logger = shim.NewLogger("ContractChaincodeLog")
 
-// Order structure
-type Order struct {
-	ID         string     `json:"id"`
-	Name       string     `json:"name"`
-	CreatedTs  time.Time  `json:"createdTs,string"`
-	Approved   *bool      `json:"approved"`
-	ReviewedTs *time.Time `json:"reviewedTs,string"`
-	Amount     uint64     `json:"amount,int"`
+type MyMockStub struct {
+	*shim.MockStub
+	str string
 }
+
+func (*MyMockStub) GetCreator() ([]byte, error) {
+	fmt.Println("GetCreator() Called!")
+	return nil, nil
+}
+
+func (stub *MyMockStub) GetChannelID() string {
+	fmt.Println("GetChannelID() Called!")
+	return "channelID"
+}
+
+func NewMyMockStub(name string, cc shim.Chaincode) *MyMockStub {
+	mock := shim.NewMockStub(name, cc)
+	fmt.Printf("the name: %s", mock.Name)
+	mymock := MyMockStub{mock, ""}
+	fmt.Printf("the name: %s", mymock.Name)
+	fmt.Println("Created my own stub!")
+	mymock.GetChannelID()
+	fmt.Println("THIS IS WHERE WE ARE!")
+	return &mymock
+}
+
+type MyMockStubChild struct {
+	MyMockStub
+}
+
+// func NewMyMockStubChild(name string, cc shim.Chaincode) *MyMockStubChild {
+// 	mock := shim.NewMockStub(name, cc)
+// 	fmt.Printf("the name: %s", mock.Name)
+// 	mymock := MyMockStub{mock, ""}
+// 	fmt.Printf("the name: %s", mymock.Name)
+// 	fmt.Println("Created my own stub!")
+// 	mymock.GetChannelID()
+// 	fmt.Println("THIS IS WHERE WE ARE!")
+// 	mymockchild := MyMockStubChild{mymock}
+// 	_ = mymockchild.str
+// 	_ = mymock.args
+// 	_ = mock.args
+// 	return &mymockchild
+// }
 
 // ContractChaincode implementation
 type ContractChaincode struct {
@@ -58,10 +92,6 @@ func (t *ContractChaincode) Invoke(stub shim.ChaincodeStubInterface) pb.Response
 	case "Health":
 		// contract chaincode
 		return t.Health(stub, args)
-	case "StoreOrder":
-		return t.StoreOrder(stub, args)
-	case "GetOrder":
-		return t.GetOrder(stub, args)
 	}
 
 	errorMsg := fmt.Sprintf("Unknown action, please check the first argument, expecting 'Health', 'StoreOrder', or 'GetOrder'. Instead, got: %s", function)
@@ -73,80 +103,30 @@ func (t *ContractChaincode) Invoke(stub shim.ChaincodeStubInterface) pb.Response
 func (t *ContractChaincode) Health(stub shim.ChaincodeStubInterface, args []string) pb.Response {
 	logger.Info("########### Contract Health ###########")
 	logger.Infof("Chaincode is healthy.")
+	logger.Infof("About to call GetCreator() method.")
+	fmt.Println(reflect.TypeOf(stub))
+	stub.GetCreator()
+	channelID := stub.GetChannelID()
+	logger.Infof("channelID.", channelID)
+
+	mspid, err := cid.GetMSPID(stub)
+	if err != nil {
+		logger.Info("This is the value of mspid", mspid)
+	} else {
+		logger.Error("there was an error", err)
+	}
+
 	return shim.Success([]byte("Ok"))
 }
 
-// StoreOrder stores an order.
-func (t *ContractChaincode) StoreOrder(stub shim.ChaincodeStubInterface, args []string) pb.Response {
-	logger.Info("########### Contract StoreOrder ###########")
-
-	var orderStr string
-	if len(args) > 0 {
-		orderStr = args[0]
-	}
-	logger.Infof("Order submitted from client app: '%s'", orderStr)
-
-	// Validate JSON object follows schema
-	orderAsBytes := []byte(orderStr)
-	order, err := t.UnmarshallOrder(orderAsBytes)
-
-	if err != nil {
-		errorMsg := fmt.Sprintf("Failed to unmarshal order: %s", err.Error())
-		logger.Error(errorMsg)
-		return shim.Error(errorMsg)
-	}
-
-	compositeKeyElements := []string{order.ID}
-	compositeRecordKey, compositeErr := stub.CreateCompositeKey("orders", compositeKeyElements)
-	if compositeErr != nil {
-		return shim.Error("Failed to generate composite key " + strings.Join(compositeKeyElements, ",") + ".  Error: " + compositeErr.Error())
-	}
-
-	logger.Infof("Composite key: %s", compositeRecordKey)
-	err = stub.PutState(compositeRecordKey, orderAsBytes)
-	if err != nil {
-		return shim.Error("Failed to store order data for id " + compositeRecordKey + ". Error: " + err.Error())
-	}
-
-	logger.Infof("Order successfully stored: '%s'", orderStr)
-	return shim.Success(nil)
-}
-
-// GetOrder gets an order.
-func (t *ContractChaincode) GetOrder(stub shim.ChaincodeStubInterface, args []string) pb.Response {
-	logger.Info("########### Contract GetOrder ###########")
-
-	var orderID string
-	if len(args) > 0 {
-		orderID = args[0]
-	}
-	logger.Infof("Order ID submitted from client app: '%s'", orderID)
-
-	compositeKeyElements := []string{orderID}
-	compositeRecordKey, compositeErr := stub.CreateCompositeKey("orders", compositeKeyElements)
-	if compositeErr != nil {
-		return shim.Error("Failed to generate composite key " + strings.Join(compositeKeyElements, ",") + ".  Error: " + compositeErr.Error())
-	}
-
-	logger.Infof("Composite key: %s", compositeRecordKey)
-	orderAsBytes, err := stub.GetState(compositeRecordKey)
-	if err != nil {
-		return shim.Error("Failed to read order data for id " + compositeRecordKey + ". Error: " + err.Error())
-	}
-
-	orderStr := string(orderAsBytes)
-	logger.Infof("Order read from the ledger: '%s'", orderStr)
-	return shim.Success(orderAsBytes)
-}
-
-// UnmarshallOrder unmarshalls (i.e. deserializes) the JSON input string into an Order struct
-func (t *ContractChaincode) UnmarshallOrder(orderAsBytes []byte) (*Order, error) {
-	var order *Order
-	err := json.Unmarshal(orderAsBytes, &order)
-	if err != nil {
-		logger.Error(err)
-	}
-	return order, err
+func (t *ContractChaincode) MyHealth(stub shim.ChaincodeStubInterface) {
+	logger.Info("########### Contract MyHealth ###########")
+	logger.Infof("Chaincode is healthy.")
+	logger.Infof("About to call GetCreator() method.")
+	fmt.Println(reflect.TypeOf(stub))
+	stub.GetCreator()
+	channelID := stub.GetChannelID()
+	logger.Infof("channelID.", channelID)
 }
 
 func main() {
