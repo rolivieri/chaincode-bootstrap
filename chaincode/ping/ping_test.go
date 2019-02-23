@@ -74,3 +74,24 @@ func TestContractChaincode_storeOrder(t *testing.T) {
 	assert.True(t, reflect.DeepEqual(order, retrievedOrder))
 	//fmt.Printf("%+v\n", retrievedOrder)
 }
+
+func TestContractChaincode_storeStr(t *testing.T) {
+	scc := new(ContractChaincode)
+	stub := shim.NewMockStub("ContractChaincode", scc)
+
+	const str = "the string to store..."
+	strAsBytes := []byte(str)
+
+	// Contract - save str
+	mockInvokeArgs := [][]byte{[]byte("StoreStr"), strAsBytes}
+	res := stub.MockInvoke(TxID, mockInvokeArgs)
+	assert.Equal(t, int(res.Status), shim.OK, "StoreStr failed.")
+	assert.Nil(t, res.Payload, "Contract return value not expected.")
+
+	// Contract - read/get str
+	mockInvokeArgs = [][]byte{[]byte("GetStr")}
+	res = stub.MockInvoke(TxID, mockInvokeArgs)
+	readStrAsBytes := res.Payload
+	assert.Equal(t, str, string(readStrAsBytes))
+	//fmt.Printf("%+v\n", retrievedOrder)
+}

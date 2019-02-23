@@ -62,6 +62,10 @@ func (t *ContractChaincode) Invoke(stub shim.ChaincodeStubInterface) pb.Response
 		return t.StoreOrder(stub, args)
 	case "GetOrder":
 		return t.GetOrder(stub, args)
+	case "StoreStr":
+		return t.StoreStr(stub, args)
+	case "GetStr":
+		return t.GetStr(stub, args)
 	}
 
 	errorMsg := fmt.Sprintf("Unknown action, please check the first argument, expecting 'Health', 'StoreOrder', or 'GetOrder'. Instead, got: %s", function)
@@ -137,6 +141,42 @@ func (t *ContractChaincode) GetOrder(stub shim.ChaincodeStubInterface, args []st
 	orderStr := string(orderAsBytes)
 	logger.Infof("Order read from the ledger: '%s'", orderStr)
 	return shim.Success(orderAsBytes)
+}
+
+// GetStr gets the string.
+func (t *ContractChaincode) GetStr(stub shim.ChaincodeStubInterface, args []string) pb.Response {
+	logger.Info("########### Contract GetStr ###########")
+
+	strAsBytes, err := stub.GetPrivateData("pdc", "string")
+	if err != nil {
+		return shim.Error("Failed to read str . Error: " + err.Error())
+	}
+
+	str := string(strAsBytes)
+	logger.Infof("str read from the ledger: '%s'", str)
+	return shim.Success(strAsBytes)
+}
+
+// StoreStr stores the string.
+func (t *ContractChaincode) StoreStr(stub shim.ChaincodeStubInterface, args []string) pb.Response {
+	logger.Info("########### Contract StoreStr ###########")
+
+	var str string
+	if len(args) > 0 {
+		str = args[0]
+	}
+	logger.Infof("str submitted from client app: '%s'", str)
+
+	// Validate JSON object follows schema
+	strAsBytes := []byte(str)
+
+	err := stub.PutPrivateData("pdc", "string", strAsBytes)
+	if err != nil {
+		return shim.Error("Failed to str. Error: " + err.Error())
+	}
+
+	logger.Infof("str successfully stored: '%s'", str)
+	return shim.Success(nil)
 }
 
 // UnmarshallOrder unmarshalls (i.e. deserializes) the JSON input string into an Order struct
