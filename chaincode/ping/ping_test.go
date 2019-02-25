@@ -79,7 +79,7 @@ func TestContractChaincode_storeStr(t *testing.T) {
 	scc := new(ContractChaincode)
 	stub := shim.NewMockStub("ContractChaincode", scc)
 
-	const str = "the string to store..."
+	const str = "{ \"str\": \"hello\" }"
 	strAsBytes := []byte(str)
 
 	// Contract - save str
@@ -93,5 +93,4 @@ func TestContractChaincode_storeStr(t *testing.T) {
 	res = stub.MockInvoke(TxID, mockInvokeArgs)
 	readStrAsBytes := res.Payload
 	assert.Equal(t, str, string(readStrAsBytes))
-	//fmt.Printf("%+v\n", retrievedOrder)
 }
